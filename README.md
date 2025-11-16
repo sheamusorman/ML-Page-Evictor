@@ -1,48 +1,48 @@
-#### Initial Ideation
+# Initial Ideation
 
-### Selected Focus: ML-Based Page Evictor
+## Selected Focus: ML-Based Page Evictor
 
-## Reasoning
+### Reasoning
 
-1. No Necessity mofidy a kernal
+1. No Necessity modify a kernal
 2. Decently easily implementable simulator
 3. Recreateable standard policies
 4. No worrying about race conditions!
 5. Concrete and clear reward system for the model
 
-## Pre-research Ideas on Model
+### Pre-research Ideas on Model
 
-# Live Learning: Multi-armed-bandit approach
+#### Live Learning: Multi-armed-bandit approach
 
 1. Spend some time learning the manner in which pages are accessed and decide a pre-made policy based on what is optimal?
 
 Could also...
 
-2. Spend some time learning how certain pages are accessed--sequentially or randomly--and adapt policy as such. Could create clusters of page that are sequentially accessed/ routinely acessed together.
+2. Spend some time learning how certain pages are accessed--sequentially or randomly--and adapt policy as such. Could create clusters of page that are sequentially accessed/ routinely acessed together. Big fan of using this in model.
 
-^ I LOVE this idea, but it might be hard to implement
+#### Pre-trained algorithm?
 
-# Pre-trained algorithm?
+Seems much less optimal... not adaptive? not quite sure how this would make good use of ML. Probably would cause less overhead though.
 
-Seems much less optimal... not adaptive? not quite sure how this would make good use of ML. probably would cause less overhead tho!
-
-## Plan
+### Plan
 
 1. Research Page Eviction (Refresher) and learn how ML is used with it
 
 2. Create a simulator and add clear support for known policies, such as LRU, FIFO, Random
 
-3. Define the ML problme
+3. Define the ML problem
 
-### 1. Research Findings:
+4. 
 
-## Learning-based page replacement scheme for efficient I/O processing - https://www.nature.com/articles/s41598-025-88736-4
+## 1. Research Findings:
 
-# EELRU - Early Eviction Least Recently Used
+### Learning-based page replacement scheme for efficient I/O processing - https://www.nature.com/articles/s41598-025-88736-4
+
+#### EELRU - Early Eviction Least Recently Used
 
 ML reaction to cache-size not being large enough for sequential reads to benefit from LRU
 
-# LPR - Learned Page Replacement
+#### LPR - Learned Page Replacement
 
 Multi-Armed-Bandit Approch: spend some time learning, then apply optimal learned policy for workload
 
@@ -50,19 +50,37 @@ LPR makes a policy selection after learning phase rather than being a new policy
 
 The scheme achieved up to ~62% reduction in execution time in a real out-of-core graph processing case, showing strong performance gains.
 
-# 
+### Enabling Customization of Operating System Memory Eviction Policies - https://er.ucu.edu.ua/server/api/core/bitstreams/8ec6969a-feee-4271-acfc-8d61cc1d820f/content
 
+#### LHD - Least Hit Density
 
-### 2. Creating a simulator
+Removal based on usefulness relative to time spent in cache.
 
-## Python Chosen
+#### MRU - Most Recently Used
+
+Self-explanatory, effective in the case of Sequential page reads followed by random followed by more sequential. A temporary MRU would keep those sequential pages 
+
+#### LFU - Most Frequently Used
+
+LHD without the division
+
+#### LRU-2Q - 2 Queue Least Recently Used
+
+LRU with a queue to track pages which have been accessed multiple times recently.
+
+## 2. Creating a simulator
+
+### Python Chosen
 
 1. Much more simple to create code for
 2. ML integration made easier
 
+### 3 Files:
 
-### 3. Defining an ML Goal 
+## Policies
 
-## Bélády's Optimal Solution
+## 3. Defining an ML Goal 
+
+### Bélády's Optimal Solution
 
 Learn a page eviction policy that approximates Bélády’s optimal replacement, using only information available at runtime (past accesses), and compare it to FIFO, LRU, and Random.
