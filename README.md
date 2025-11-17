@@ -104,9 +104,9 @@ This gives you a source-backed graph of page access types that you can put direc
 
 ### 3 Files:
 
-## Simulator.py
+#### Simulator.py
 
-# Overview
+##### Overview
 
 Basic simulator of an operating system’s page-eviction behavior.
 
@@ -122,7 +122,7 @@ usage: python simulator.py --cacheframes <N> --policy <name> --trace <file> [--v
 
 A SimulationResult dataclass summarizes the run, reporting hit rate, fault rate, and the final content of the cache.
 
-# Methods:
+##### Methods:
 
 access(page_id):
 Simulates referencing a single page
@@ -141,7 +141,7 @@ The main() function provides a simple CLI interface for running the simulator...
 6. Prints a summary of results
 7. (If Verbose): Displays the final cache state
 
-## Policies.py
+#### Policies.py
 
 Collection of pluggable page-replacement algorithms, each matching a single function signature:
 
@@ -158,7 +158,7 @@ Included policies:
 
 Policies are registered in a central dictionary so the simulator can select them by name via CLI.
 
-## Traces.py
+#### Traces.py
 
 Collection of pluggable cache access routines, each modeling a common access pattern.
 
@@ -167,6 +167,7 @@ Provides several synthetic workloads that mimic common memory-access patterns:
 1. loop_small / loop_large – cyclic working sets
 2. locality_shift – working set changes over time
 3. mixed_random – hot vs cold pages with different probabilities
+4. random – uniform random selection on each page
 
 Also supports loading traces from external files.
 All traces output simple lists of page IDs to feed into the simulator.
@@ -175,4 +176,4 @@ All traces output simple lists of page IDs to feed into the simulator.
 
 ### Goal: Bélády's Optimal Solution
 
-Though not gauranteeable in reality, my goal is to replace the page that will be accessed furthest in the future, which is the optimal policy [Bélády’s] optimal replacement, using only information available at runtime (past accesses), and compare it to FIFO, LRU, and Random.
+Though not gauranteeable in reality, my goal is to replace the page that will be accessed furthest in the future, which is the optimal policy (Bélády’s) optimal replacement, using only information available at runtime (past accesses), and compare it to FIFO, LRU, and Random.
