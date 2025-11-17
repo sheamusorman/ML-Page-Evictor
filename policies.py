@@ -10,8 +10,7 @@ EvictionPolicyFn = Callable[
   int,
 ]
 
-
-# ---------- FIFO ----------
+# ----- FIFO -----
 
 def fifo_policy(
   frames: List[Optional[int]],
@@ -40,8 +39,45 @@ def fifo_policy(
 
   return victim_idx
 
+# ----- MLFIFO -----
 
-# ---------- LRU ----------
+def mlfifo_policy(
+  frames: List[Optional[int]],
+  page_table: Dict[int, int],
+  meta: Dict[int, "PageMeta"],
+  time: int,
+) -> int:
+  """
+  Multi-Level FIFO:
+  Evict the oldest page among those with the lowest access count.
+  Uses meta[page_id].load_time and meta[page_id].access_count.
+  """
+  victim_idx: Optional[int] = None
+  min_access_count: Optional[int] = None
+  oldest_load_time: Optional[int] = None
+
+  for idx, page_id in enumerate(frames):
+    if page_id is None:
+      continue
+    m = meta[page_id]
+    ac = m.access_count
+    lt = m.load_time
+
+    if min_access_count is None or ac < min_access_count:
+      min_access_count = ac
+      oldest_load_time = lt
+      victim_idx = idx
+    elif ac == min_access_count:
+      if oldest_load_time is None or lt < oldest_load_time:
+        oldest_load_time = lt
+        victim_idx = idx
+
+  if victim_idx is None:
+    victim_idx = 0
+
+  return victim_idx
+
+# ----- LRU -----
 
 def lru_policy(
   frames: List[Optional[int]],
@@ -71,7 +107,7 @@ def lru_policy(
   return victim_idx
 
 
-# ---------- MRU ----------
+# ----- MRU -----
 
 def mru_policy(
   frames: List[Optional[int]],
@@ -103,7 +139,7 @@ def mru_policy(
   return victim_idx
 
 
-# ---------- Random ----------
+# ----- Random -----
 
 def random_policy(
   frames: List[Optional[int]],
@@ -120,7 +156,7 @@ def random_policy(
   return random.choice(indices)
 
 
-# ---------- LFU ----------
+# ----- LFU -----
 
 def lfu_policy(
   frames: List[Optional[int]],
@@ -158,7 +194,7 @@ def lfu_policy(
   return victim_idx
 
 
-# ---------- LHD ----------
+# ----- LHD -----
 
 def lhd_policy(
   frames: List[Optional[int]],
@@ -208,7 +244,7 @@ def lhd_policy(
   return victim_idx
 
 
-# ---------- 2Q-style ----------
+# ----- 2Q-style -----
 
 def twoq_policy(
   frames: List[Optional[int]],
@@ -243,7 +279,7 @@ def twoq_policy(
   return victim_idx
 
 
-# ---------- ML stub ----------
+# ----- ML stub -----
 
 def ml_policy(
   frames: List[Optional[int]],
@@ -254,7 +290,7 @@ def ml_policy(
   return lru_policy(frames, page_table, meta, time)
 
 
-# ---------- Registry ----------
+# ----- Registry -----
 
 _POLICY_REGISTRY: Dict[str, EvictionPolicyFn] = {
   "fifo": fifo_policy,

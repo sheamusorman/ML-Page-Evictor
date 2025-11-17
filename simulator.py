@@ -8,7 +8,7 @@ import policies
 import traces
 
 
-# ---------- Data structures ----------
+# ----- Data structures -----
 
 @dataclass
 class PageMeta:
@@ -40,7 +40,7 @@ EvictionPolicyFn = Callable[
 ]
 
 
-# ---------- Simulator core ----------
+# ----- Simulator core -----
 
 class Simulator:
   """
@@ -172,7 +172,7 @@ class Simulator:
     )
 
 
-# ---------- CLI ----------
+# ----- CLI -----
 
 def parse_args() -> argparse.Namespace:
   parser = argparse.ArgumentParser(
@@ -235,10 +235,10 @@ def main() -> None:
   print(f"Hit rate:    {result.hit_rate():.4f}")
   print(f"Fault rate:  {result.fault_rate():.4f}")
 
-  print("Final cache state (frame_index: page_id):")
-  for idx, page_id in enumerate(sim.frames):
-    print(f"  Frame {idx}: {page_id}")
-
+  if args.verbose:
+    print("Final cache state (frame_index: page_id):")
+    for idx, page_id in enumerate(sim.frames):
+      print(f"  Frame {idx}: {page_id}")
 
 if __name__ == "__main__":
   main()

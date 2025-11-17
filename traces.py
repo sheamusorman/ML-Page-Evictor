@@ -25,6 +25,7 @@ def _locality_shift_trace(
     base = s * pages_per_segment
     for _ in range(segment_len):
       trace.append(base + (len(trace) % pages_per_segment))
+  print(f"Generated locality shift trace: {trace}")
   return trace
 
 
@@ -37,7 +38,7 @@ def _random_mixed_trace(
   """
   Mixed random accesses with a hot subset.
   """
-  rng = random.Random(0)
+  rng = random.Random()
   hot = list(range(num_pages_hot))
   cold = list(range(num_pages_hot, num_pages_hot + num_pages_cold))
 
@@ -47,8 +48,23 @@ def _random_mixed_trace(
       trace.append(rng.choice(hot))
     else:
       trace.append(rng.choice(cold))
+
   return trace
 
+def _random_trace(
+  num_pages: int = 50,
+  length: int = 500,
+) -> List[int]:
+  """
+  Mixed random accesses with a hot subset.
+  """
+  rng = random.Random()
+  pages = list(range(num_pages))
+
+  trace: List[int] = []
+  for _ in range(length):
+    trace.append(rng.choice(pages))
+  return trace
 
 # Predefined traces
 _PREDEFINED_TRACES: Dict[str, List[int]] = {
@@ -56,6 +72,7 @@ _PREDEFINED_TRACES: Dict[str, List[int]] = {
   "loop_large": _loop_trace(num_pages=20, length=500),
   "locality_shift": _locality_shift_trace(),
   "mixed_random": _random_mixed_trace(),
+  "random": _random_trace(),
 }
 
 

@@ -35,7 +35,7 @@ Seems much less optimal... not adaptive? not quite sure how this would make good
 
 2. Create a simulator and add clear support for known policies, such as LRU, FIFO, Random
 
-3. Define the ML problem
+3. Define the ML problem and goal.
 
 4. 
 
@@ -75,38 +75,24 @@ LRU with a queue to track pages which have been accessed multiple times recently
 
 ### Classifying Memory Access Patterns - Multiple Sites 
 
-1. Sequential / scan – contiguous page references.
+1. Sequential / scan – contiguous page references
 2. Strided / structured – regular non-contiguous spatial accesses
-
-
-3. Random / irregular – non-local, unpredictable page jumps (madvise, FCM, AOIO, FlatFlash). 
-
-
-High-locality / hot-set – strong temporal locality within a small working set (Denning, core working sets). 
-
-Looping / cyclic – pages revisited in regular cycles (FCM; He et al.; AOIO). 
-
-Phase-shift / working-set change – workloads that move between pattern regimes / working sets (AOIO mixed workloads + working-set theory). 
-
-Moderate locality – partial working-set coverage between hot-set and random (implied by working-set and core-working-set analyses). 
-
-Mixed / multimodal – combinations of the above within one trace (AOIO Multi4; DL I/O mixes). 
-
-This gives you a source-backed graph of page access types that you can put directly into your write-up or slides.
+3. Random / irregular – non-local, unpredictable page jumps
+4. High-locality / hot-set – strong temporal locality within a small working set
+5. Looping / cyclic – pages revisited in regular cycles (repeated strided/sequential)
+6. Phase-shift / working-set change – workloads that move between pattern regimes / working sets
+7. Moderate locality – partial working-set coverage between hot-set and random 
+8. Mixed / multimodal – combinations of the above within one trace
 
 ## 2. Creating a simulator
 
 ### Python Chosen
 
 1. Much more simple to create code for
-2. ML integration made easier
-3. ...                                                         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+2. ML integration straightforward (PyTorch, TensorFlow, Scikit-Learn).
+3. Copious and accessible visualization tools (Matplotlib, Seaborn) help analyze traces, patterns, and miss-rate curves.
 
-### 3 Files:
-
-#### Simulator.py
-
-##### Overview
+### Simulator.py
 
 Basic simulator of an operating system’s page-eviction behavior.
 
@@ -122,7 +108,7 @@ usage: python simulator.py --cacheframes <N> --policy <name> --trace <file> [--v
 
 A SimulationResult dataclass summarizes the run, reporting hit rate, fault rate, and the final content of the cache.
 
-##### Methods:
+#### Methods:
 
 access(page_id):
 Simulates referencing a single page
@@ -131,7 +117,7 @@ run(trace):
 Executes the full sequence of page references
 
 main:
-The main() function provides a simple CLI interface for running the simulator...
+The main() function provides a simple CLI interface for running the simulator, and...
 
 1. Parses command-line arguments (--frames, --policy, --trace, --verbose)
 2. Loads the requested page trace
@@ -141,7 +127,7 @@ The main() function provides a simple CLI interface for running the simulator...
 6. Prints a summary of results
 7. (If Verbose): Displays the final cache state
 
-#### Policies.py
+### Policies.py
 
 Collection of pluggable page-replacement algorithms, each matching a single function signature:
 
@@ -158,7 +144,7 @@ Included policies:
 
 Policies are registered in a central dictionary so the simulator can select them by name via CLI.
 
-#### Traces.py
+### Traces.py
 
 Collection of pluggable cache access routines, each modeling a common access pattern.
 
@@ -176,4 +162,8 @@ All traces output simple lists of page IDs to feed into the simulator.
 
 ### Goal: Bélády's Optimal Solution
 
-Though not gauranteeable in reality, my goal is to replace the page that will be accessed furthest in the future, which is the optimal policy (Bélády’s) optimal replacement, using only information available at runtime (past accesses), and compare it to FIFO, LRU, and Random.
+Though not gauranteeable in reality, my goal is to replace the page that will be accessed furthest in the future, which is the optimal policy (Bélády’s) optimal replacement, using only information available at runtime (past accesses), and compare it to some of the policies built into the simulator.
+
+To strive for Béláday, I plan on training a model to use a similar LPR strategy as described in the research paper cited above. I will train a mof=del that can recognize types of access patterns. This taxonomy will map to the optimal eviction strategy to use. When the model realizes new patterns in the incoming page access stream, it will change the eviction policy as necessary.
+
+I plan on looking into ways I can improve the model beyond simple reactionary policy changes, such as building associations between certain pages as to incentivise keeping clustered pages in the cache even if a policy change hasn't been declared by the model. This might complicate things at a lower level, so this addition is still a hypothetical.
