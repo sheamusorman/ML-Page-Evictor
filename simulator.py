@@ -182,7 +182,8 @@ def parse_args() -> argparse.Namespace:
     "--frames",
     "-f",
     type=int,
-    required=True,
+    required=False,
+    default=30,
     help="Number of physical frames.",
   )
   parser.add_argument(

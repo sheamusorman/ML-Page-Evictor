@@ -1,4 +1,6 @@
-# Initial Ideation - OS Concepts x ML Practice Project
+# OS Concepts x ML Practice Project
+
+## Initial Ideas:
 
 1. ML Scheduler
 2. ML Page Evictor Policy <--
@@ -84,6 +86,12 @@ LRU with a queue to track pages which have been accessed multiple times recently
 7. Moderate locality – partial working-set coverage between hot-set and random 
 8. Mixed / multimodal – combinations of the above within one trace
 
+1, 2
+3
+4 
+5
+6, 7, 8
+
 ## 2. Creating a simulator
 
 ### Python Chosen
@@ -167,3 +175,15 @@ Though not gauranteeable in reality, my goal is to replace the page that will be
 To strive for Béláday, I plan on training a model to use a similar LPR strategy as described in the research paper cited above. I will train a mof=del that can recognize types of access patterns. This taxonomy will map to the optimal eviction strategy to use. When the model realizes new patterns in the incoming page access stream, it will change the eviction policy as necessary.
 
 I plan on looking into ways I can improve the model beyond simple reactionary policy changes, such as building associations between certain pages as to incentivise keeping clustered pages in the cache even if a policy change hasn't been declared by the model. This might complicate things at a lower level, so this addition is still a hypothetical.
+
+## 4. Training the Model(s)
+
+
+
+## Further Imrpovements Discussion
+
+1. Make use of more page metadata
+  1. origin of page/type of segment read from
+  2. (Increases feature data for potential model training)
+
+2. 
