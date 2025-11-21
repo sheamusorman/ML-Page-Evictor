@@ -11,8 +11,8 @@
 
 ### Reasoning
 
-1. No Necessity modify a kernal
-2. Decently easily implementable simulator
+1. No necessity modify a kernel
+2. More easily implementable simulator
 3. Recreateable standard policies for comparison
 4. No worrying about race conditions!
 5. Concrete and clear reward system for the model's training
@@ -37,9 +37,10 @@ Seems much less optimal... not adaptive? not quite sure how this would make good
 
 2. Create a simulator and add clear support for known policies, such as LRU, FIFO, Random
 
-3. Define the ML problem and goal.
+3. Define the ML problem, goal, and plan for training
 
-4. 
+4. Train the model(s)
+  1. 
 
 ## 1. Research Findings:
 
@@ -75,7 +76,7 @@ LHD without the division
 
 LRU with a queue to track pages which have been accessed multiple times recently.
 
-### Classifying Memory Access Patterns - Multiple Sites 
+### Classifying Memory Access Patterns - Multiple Sources 
 
 1. Sequential / scan – contiguous page references
 2. Strided / structured – regular non-contiguous spatial accesses
@@ -86,11 +87,13 @@ LRU with a queue to track pages which have been accessed multiple times recently
 7. Moderate locality – partial working-set coverage between hot-set and random 
 8. Mixed / multimodal – combinations of the above within one trace
 
-1, 2
-3
-4 
-5
-6, 7, 8
+Buckets (For which to define a best cache policy):
+
+A: 1, 2
+B: 3
+C: 4
+D: 5
+E: 6, 7, 8
 
 ## 2. Creating a simulator
 
@@ -133,7 +136,7 @@ The main() function provides a simple CLI interface for running the simulator, a
 4. Instantiates a Simulator
 5. Runs the simulation
 6. Prints a summary of results
-7. (If Verbose): Displays the final cache state
+7. (If Verbose): Displays the final cache state and cache state at each access
 
 ### Policies.py
 
@@ -154,17 +157,48 @@ Policies are registered in a central dictionary so the simulator can select them
 
 ### Traces.py
 
-Collection of pluggable cache access routines, each modeling a common access pattern.
+Provides a set of pluggable trace generators that model a variety of memory-access patterns. These routines are used to benchmark cache-replacement policies, evaluate ML classifiers, and explore locality behavior. Each generator returns a list of integer page IDs suitable for direct input to the simulator.
 
-Provides several synthetic workloads that mimic common memory-access patterns:
+#### Included Synthetic Trace Generators
 
-1. loop_small / loop_large – cyclic working sets
-2. locality_shift – working set changes over time
-3. mixed_random – hot vs cold pages with different probabilities
-4. random – uniform random selection on each page
+1. **loop_small / loop_large**  
+   Cyclic access patterns over small or large fixed working sets.  
+   Models tight loops and repeated computations with strong temporal locality.
 
-Also supports loading traces from external files.
-All traces output simple lists of page IDs to feed into the simulator.
+2. **locality_shift**  
+   Splits the trace into several segments, each with a distinct, non-overlapping working set.  
+   Models abrupt phase changes and working-set replacement.
+
+3. **moving_working_set**  
+   Generates a simple shifting window. Each phase selects a new contiguous region and draws uniformly from it.  
+   Captures coarse working-set movement but without realistic overlap or temporal correlation.
+
+4. **shifting_working_set**  
+   Produces a more realistic drifting working set.  
+   Each phase shifts the base address by a small amount, maintaining continuity and gradual locality evolution.  
+   Models sliding-window access patterns and iterative workloads where the hot region moves over time.
+
+5. **mixed_random**  
+   Implements a hot–cold access model. A small hot subset receives most accesses; the remainder are drawn from a larger cold set.  
+   Useful for testing eviction policies under skewed distributions.
+
+6. **random**  
+   Uniform random sampling across the full page range.  
+   Provides a locality-free baseline and adversarial workload.
+
+#### External Trace Support
+
+If the provided name does not match a predefined trace, it is treated as a file path.  
+Trace files may contain:
+
+- One page ID per line, or  
+- Space-separated integers
+
+Empty lines and `#` comments are ignored.
+
+#### Predefined Trace Names
+
+
 
 ## 3. Defining an ML Goal
 
@@ -178,12 +212,132 @@ I plan on looking into ways I can improve the model beyond simple reactionary po
 
 ## 4. Training the Model(s)
 
+### Building the Model
+
+## ML Access Pattern Classifier
+
+This project uses a small neural network to recognize different memory access patterns online and switch page replacement policies accordingly.
+
+### Access pattern buckets (A–F)
+
+I group windows of recent page references into six high-level buckets:
+
+- **A – Scan / Stride (no reuse)**  
+  Mostly sequential or strided forward accesses with almost no repeats.
+
+- **B – Random**  
+  Uniform or near-uniform random reads with minimal spatial or temporal locality.
+
+- **C – Tight hot set**  
+  Strong temporal locality within a small working set that fits well in cache.
+
+- **D – Looping / cyclic**  
+  Repeated traversal of a working set in a loop, possibly larger than the cache.
+
+- **E – Dynamic hot / phase shift**  
+  Hot pages embedded in a larger background plus phase changes where the hot region shifts over time.
+
+- **F – Mixed / transition**  
+  Ambiguous windows that contain a combination of patterns (e.g., during a change in behavior). When F is detected, the controller keeps the previous stable policy instead of switching immediately.
+
+Each bucket is mapped to an “optimal” concrete policy (MRU, random, 2Q, LHD, etc.) that is better suited for that behavior.
+
+### Feature vector
+
+For each sliding window of recent page IDs, I compute an 8-dimensional feature vector:
+
+### Feature Vector Definition
+
+In order to start the model, I must determine an informative feature vector for my model to interpret/draw conclusions from during training. This feature vector will incorporate 8 important features of a window of past memory accesses, such as:
+
+#### **1. `unique_ratio`**
+Measures the proportion of unique pages in the window.  
+High values indicate streaming, random, or shifting behavior; low values indicate strong temporal locality.
+
+#### **2. `repeat_ratio`**
+Defined as `1 − unique_ratio`.  
+Quantifies how heavily the workload reuses the same pages.
+
+#### **3. `sequential_frac`**
+Fraction of adjacent accesses where `page[i+1] == page[i] + 1`.  
+Identifies sequential scanning behavior.
+
+#### **4. `stride_small_frac`**
+Fraction of adjacent accesses with a small stride (e.g., `|diff| ≤ 4`).  
+Captures structured spatial locality, including strided or near-linear patterns.
+
+#### **5. `reuse_mean`**
+Mean reuse distance for repeated page accesses.  
+Lower values indicate strong temporal locality (hot sets, loops); higher values indicate streaming or random behavior.
+
+#### **6. `reuse_small_frac`**
+Fraction of reuse distances ≤ 10.  
+Measures short-term temporal locality, distinguishing tight hot sets from larger loops or random behavior.
+
+#### **7. `entropy`**
+Entropy of the page-ID distribution in the window.  
+High entropy indicates scattered or random access; low entropy indicates concentrated hot sets.
+
+#### **8. `max_run_len`**
+Length of the longest consecutive run of the same page.  
+Identifies extreme immediate locality (e.g., heavy reuse of one page).
+
+These features summarize spatial structure, temporal locality, and randomness in a compact way that is easy for my small network to learn from and make in-the-moment decisions on.
+
+### Model architecture and training
+
+The classifier is a simple feed-forward network implemented in PyTorch:
+
+- Input: 8-dimensional feature vector  
+- Layers: 32 → 32 hidden units with ReLU activations  
+- Output: 6 logits (one per bucket A–F)  
+- Loss: cross-entropy  
+- Optimizer: Adam  
+- Training data: ~6k windows generated from synthetic traces that simulate each bucket plus mixed windows for F.
+
+The trained weights are stored in `access_pattern_classifier.pt`.
+
+### Online PatternController
+
+At runtime, the `PatternController`:
+
+1. Maintains a sliding buffer of the most recent 50 page references.  
+2. Computes the feature vector for the current window.  
+3. Runs the classifier to predict the most likely bucket (A–F).  
+4. Smooths predictions over the last few windows to avoid flapping.  
+5. Maps the bucket to a concrete eviction policy:
+   - A → MRU  
+   - B → random  
+   - C → 2Q  
+   - D → 2Q  
+   - E → LHD  
+   - F → keep the last stable policy
+
+The simulator calls `controller.observe(page_id)` on every reference, and the ML-driven `ml` policy queries `controller.current_policy_name()` whenever it needs to evict a page. This allows the cache to adapt dynamically to changes in the access pattern instead of committing to a single static replacement strategy.
+
+### Some Model Changes!
+
+After training the momdel and running over test data, i found taht a window of 100 felt a little bit 
+
+1. Cutting Losses on Buckets A
+   - A → LRU until 50% of cache has been replaced, !!!!!!!!  
+   - B → NONE
+   - C → 2Q
+   - D → 2Q
+   - E → LHD  
+   - F → keep the last stable policy
+
+The simulator calls `controller.observe(page_id)` on every reference, and the ML-driven `ml` policy queries `controller.current_policy_name()` whenever it needs to evict a page. This allows the cache to adapt dynamically to changes in the access pattern instead of committing to a single static replacement strategy.
 
 
-## Further Imrpovements Discussion
+## Further Improvements Discussion
 
 1. Make use of more page metadata
   1. origin of page/type of segment read from
   2. (Increases feature data for potential model training)
 
-2. 
+2. Adaptive ML Data:
+  1. Storage Size Recognition: In the simulator, there isn't a set storage size. Having a defined storage size could help allude to the type of memory accesses that are occuring. For instance, (1, 49, 24, 18) looks a lot more like a working set (rather than random calls) if your storage size is 1M pages than if your storage size is 50.
+  2. Page Clustering/Association: Currently, the model only makes decisions based on teh current window, however, if was able to recognize cretain groups of pages together, it may infer a change in the access pattern earlier than it woueld under the curent model.
+  3. ML Pattern Window Size: Even after research, I haven't quite found a consistent hot-pages/working set size (relative to the cache). I have found that cache size plays a vital role in the importance of policy switches, so being able to decide a reasonable cache size relative to both the storage size and typical hot pages size would allow me to choose a golidlocks window size, allowing the model to have enough data before a change is made, as well as not have too small of a scope.
+  4. Pattern Frequency Targets: In training the model, I have 6 labeled memory access patterns. Though I am not fully sure how the model treats these patterns in terms of frequency in practice, I think it is reasonable to assume that the model COULD work better if I had more data to inform the model on the typical frequency of each of these patterns. For example, if the model is told that 80% of the time looping reads occur and 20% of the time random reads occur, the model might aim for such a split when it comes to the policy decisions it is making. Currently, though, I provide no data on the relative frequency of the 6 classifications I've defined.
