@@ -404,7 +404,7 @@ Interestingly, the model performed best on the mixed-random trace. In the cases 
 
 ![Real Trace Comparison](batch_policy_comparison_chart.png)
 
-Real trace data used from ![University of Toronto - Department of Computer Science](https://www.cs.toronto.edu/~reid/csc150/02f/a2/traces.html)
+Real trace data used from [University of Toronto - Department of Computer Science](https://www.cs.toronto.edu/~reid/csc150/02f/a2/traces.html)
 
 The real application traces (mmout, mmout1, lu, sort1) exhibit much noisier and more irregular behavior than the synthetic patterns used during training. These workloads contain shifting working sets, large matrix-driven strides, pivot-based recursion, and other behaviors that do not map cleanly to the six bucket types. When viewing some of the data that I trained the model on, I was able to distinguish between different memory access types. Real-world accesses, however, seem to be doing 5 different things at all times, even if the data is only from one process's execution! As a result, the ML classifier rarely reaches high-confidence predictions and therefore spends most of its time falling back to LHD, which limits its ability to differentiate itself from the classical policies.
 
