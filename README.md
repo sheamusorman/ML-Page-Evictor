@@ -394,7 +394,7 @@ Confusion matrix (rows = true, cols = pred):
 
 ### Results Analysis – Generated Traces
 
-![Generated Trace Comparison](figures/policy_comparison_chart.png)
+![Generated Trace Comparison](policy_comparison_chart.png)
 
 The results of this graph are quite to be expected. Since the model was trained on this data, I am glad that its performance was not significantly worse than the very policies I could have chosen from!
 
@@ -402,7 +402,7 @@ Interestingly, the model performed best on the mixed-random trace. In the cases 
 
 ### Results Analysis – Real & Complex Traces
 
-![Real Trace Comparison](figures/batch_policy_comparison_chart.png)
+![Real Trace Comparison](batch_policy_comparison_chart.png)
 
 Real trace data used from ![University of Toronto - Department of Computer Science](https://www.cs.toronto.edu/~reid/csc150/02f/a2/traces.html)
 
