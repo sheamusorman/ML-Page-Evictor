@@ -10,7 +10,7 @@ import policies
 import traces
 
 
-# ----- Data structures -----
+# Data structures 
 
 @dataclass
 class PageMeta:
@@ -41,7 +41,7 @@ EvictionPolicyFn = Callable[
 ]
 
 
-# ----- Simulator core -----
+# Simulator core 
 
 class Simulator:
   """
@@ -72,7 +72,7 @@ class Simulator:
     self.num_faults: int = 0
 
 
-  # ----- Internal helpers -----
+  # Internal helpers 
 
   def _is_in_memory(self, page_id: int) -> Tuple[bool, Optional[int]]:
     frame_idx = self.page_table.get(page_id)
@@ -107,7 +107,7 @@ class Simulator:
     self.frames[frame_idx] = None
 
 
-  # ----- Public API -----
+  # Public API 
 
   def access(self, page_id: int) -> None:
     self.num_references += 1
@@ -146,7 +146,7 @@ class Simulator:
           self.time,
         )
 
-        # Special value from ml_policy: -1 means "do not evict anything".
+        #-1: do not evict anything.
         if victim_idx == -1:
           if self.verbose:
             print("[ML] random region detected → skipping eviction; cache unchanged.")
@@ -164,7 +164,7 @@ class Simulator:
         meta.last_access_time = self.time
         meta.access_count += 1
 
-
+    # iterative cache print:
     #if self.verbose:
     #  print(f"[t={self.time}] Access {page_id} "
     #        f"({'HIT' if in_mem else 'FAULT'})")
@@ -172,8 +172,6 @@ class Simulator:
     #  for idx, p in enumerate(self.frames):
     #    print(f"    Frame {idx}: {p}")
     #  print("-" * 40)
-
-
 
   def run(self, trace: Iterable[int]) -> SimulationResult:
     for page_id in trace:
@@ -188,11 +186,11 @@ class Simulator:
     )
 
 
-# ----- CLI -----
+# CLI 
 
 def parse_args() -> argparse.Namespace:
   parser = argparse.ArgumentParser(
-    description="Page replacement simulator with pluggable policies."
+    description="Page replacement simulator."
   )
   parser.add_argument("--frames", "-f", type=int, default=30)
   parser.add_argument("--policy", "-p", type=str, required=True)
@@ -202,12 +200,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_trace(trace_arg: str) -> List[int]:
-  # If it's a file on disk, load it
   if os.path.isfile(trace_arg):
     with open(trace_arg, "r") as f:
       return [int(line.strip()) for line in f if line.strip()]
 
-  # Otherwise treat it as a trace name
   return traces.get_trace(trace_arg)
 
 
@@ -222,7 +218,7 @@ def main() -> None:
   if args.policy.lower() == "ml":
     controller = PatternController(
       model_path="access_pattern_classifier.pt",
-      window_size=48,
+      window_size=192,
       history_len=8,
     )
     policies.set_ml_controller(controller)

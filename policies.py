@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import random
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional, Callable, TYPE_CHECKING
 
-from simulator import PageMeta
+if TYPE_CHECKING:
+  from simulator import PageMeta
 
 EvictionPolicyFn = Callable[
   [List[Optional[int]], Dict[int, int], Dict[int, "PageMeta"], int],
@@ -11,7 +12,7 @@ EvictionPolicyFn = Callable[
 ]
 
 ML_CONTROLLER = None  # set by simulator when using the ML policy
-
+_LAST_PRINTED_POLICY = None
 
 def set_ml_controller(controller) -> None:
   """
@@ -21,7 +22,7 @@ def set_ml_controller(controller) -> None:
   ML_CONTROLLER = controller
 
 
-# ----- FIFO -----
+# FIFO
 
 def fifo_policy(
   frames: List[Optional[int]],
@@ -51,7 +52,7 @@ def fifo_policy(
   return victim_idx
 
 
-# ----- LRU -----
+# LRU
 
 def lru_policy(
   frames: List[Optional[int]],
@@ -81,7 +82,8 @@ def lru_policy(
   return victim_idx
 
 
-# ----- MRU -----
+# MRU
+
 
 def mru_policy(
   frames: List[Optional[int]],
@@ -111,7 +113,7 @@ def mru_policy(
   return victim_idx
 
 
-# ----- Random -----
+# Random
 
 def random_policy(
   frames: List[Optional[int]],
@@ -128,7 +130,7 @@ def random_policy(
   return random.choice(indices)
 
 
-# ----- LFU -----
+# LFU
 
 def lfu_policy(
   frames: List[Optional[int]],
@@ -166,8 +168,7 @@ def lfu_policy(
   return victim_idx
 
 
-# ----- LHD -----
-
+# LHD 
 
 def lhd_policy(
   frames: List[Optional[int]],
@@ -217,7 +218,7 @@ def lhd_policy(
   return victim_idx
 
 
-# ----- 2Q-style -----
+# 2Q-style 
 
 def twoq_policy(
   frames: List[Optional[int]],
@@ -247,49 +248,9 @@ def twoq_policy(
   return 0
 
 
-# ----- CLOCK ----- Note, this requires sim.clock_hand to be set up still
-
-def clock_policy(sim, page_id):
-  """
-  CLOCK (Second-Chance) page replacement.
-  Uses sim.clock_hand and a per-frame reference bit.
-  """
-  if page_id in sim.page_table:
-    frame = sim.page_table[page_id]
-    sim.frames[frame].ref = 1
-    return
-
-  if len(sim.page_table) < sim.num_frames:
-    frame_index = len(sim.page_table)
-  else:
-    while True:
-      hand = sim.clock_hand
-      meta = sim.frames[hand]
-
-      if getattr(meta, "ref", 0) == 0:
-        del sim.page_table[meta.page_id]
-        frame_index = hand
-        break
-      else:
-        meta.ref = 0
-        sim.clock_hand = (hand + 1) % sim.num_frames
-
-    sim.clock_hand = (sim.clock_hand + 1) % sim.num_frames
-
-  sim.page_table[page_id] = frame_index
-  sim.frames[frame_index] = PageMeta(
-    page_id=page_id,
-    load_time=sim.time,
-    last_access=sim.time,
-    access_count=1,
-    ref=1,
-  )
-
-
-# ---------- Sequential hybrid (LRU → MRU) ----------
+# Sequential hybrid (LRU → MRU)
 
 RECENT_WINDOW_FOR_SEQ = 96  # how far back in time a page counts as "recent"
-
 
 def seq_hybrid_policy(
   frames: List[Optional[int]],
@@ -299,15 +260,14 @@ def seq_hybrid_policy(
 ) -> int:
   """
   Hybrid policy for sequential / strided patterns.
-
-  Idea:
-    - Identify pages that have been accessed recently (within RECENT_WINDOW_FOR_SEQ).
-    - Count how many frames currently hold such "recent" pages.
-    - If recent pages occupy less than half of the frames:
-        behave like LRU (evict the least recently used page) so the
-        new sequential pages can fill the cache and old pages are flushed.
-    - Once recent pages occupy at least half of the frames:
-        behave like MRU to avoid polluting the cache with further streaming data.
+  Intuition:
+    Identify pages that have been accessed recently (within RECENT_WINDOW_FOR_SEQ).
+    Count how many frames currently hold such "recent" pages.
+    If recent pages occupy less than half of the frames:
+      behave like LRU (evict the least recently used page) so the
+      new sequential pages can fill the cache and old pages are flushed.
+    Once recent pages occupy at least half of the frames:
+      behave like MRU to avoid polluting the cache with further streaming data.
   """
   num_frames = len(frames)
 
@@ -333,8 +293,7 @@ def seq_hybrid_policy(
   return mru_policy(frames, page_table, meta, time)
 
 
-# ----- Preserve-cache policy (no eviction) -----
-
+# Preserve-cache policy (no eviction)
 
 def preserve_cache_policy(
   frames: List[Optional[int]],
@@ -351,9 +310,67 @@ def preserve_cache_policy(
   """
   return -1
 
+# Loop-preserving hybrid policy
 
-# ----- ML policy -----
+LOOP_WINDOW = 128 
 
+def loop_preserve_policy(
+  frames: List[Optional[int]],
+  page_table: Dict[int, int],
+  meta: Dict[int, "PageMeta"],
+  time: int,
+) -> int:
+  """
+  Loop-preserving policy.
+
+  Intuition:
+    - Treat pages accessed within the last LOOP_WINDOW references as part of
+      the current working set (likely the loop body).
+    - Evict pages outside this recent set first (stale pages from the
+      previous phase).
+    - Among candidates, evict the least recently used page.
+
+  This makes it easier for the cache to:
+    - flush out pre-loop pages once a loop starts, and
+    - keep the loop pages resident if the loop working set fits in cache.
+  """
+  victim_idx: Optional[int] = None
+
+  # 1) Identify "recent" pages based on last_access_time.
+  recent_pages = {
+    page_id
+    for page_id, m in meta.items()
+    if time - m.last_access_time <= LOOP_WINDOW
+  }
+
+  # 2) Split frames into "outside recent WS" and "inside recent WS".
+  outside_ws: List[tuple[int, int]] = []  # (idx, last_access_time)
+  inside_ws: List[tuple[int, int]] = []
+
+  for idx, page_id in enumerate(frames):
+    if page_id is None:
+      continue
+    m = meta[page_id]
+    if page_id in recent_pages:
+      inside_ws.append((idx, m.last_access_time))
+    else:
+      outside_ws.append((idx, m.last_access_time))
+
+  # 3) Prefer evicting stale pages from outside the current working set.
+  if outside_ws:
+    # LRU among outside-WS pages
+    victim_idx = min(outside_ws, key=lambda p: p[1])[0]
+  elif inside_ws:
+    # All frames are part of the current WS; just use LRU over them.
+    victim_idx = min(inside_ws, key=lambda p: p[1])[0]
+  else:
+    # Fallback: no metadata? default to first frame.
+    victim_idx = 0
+
+  return victim_idx
+
+
+# ML policy
 
 def ml_policy(
   frames: List[Optional[int]],
@@ -362,43 +379,66 @@ def ml_policy(
   time: int,
 ) -> int:
   """
-  ML-driven eviction policy.
+  ML-driven eviction policy with confidence-gated fallback to LHD.
 
-  - Delegates pattern recognition and bucket selection to the global
-    PatternController (ML_CONTROLLER).
-  - For random regions (bucket B), returns -1 to signal that nothing should
-    be evicted and the cache contents should remain unchanged.
-  - Otherwise, delegates to the currently chosen concrete policy.
+  LHD is the true working default, only overridden when the model is confident
+  in a specific, specialized pattern (A, C, D, or B with high confidence).
   """
   if ML_CONTROLLER is None:
-    return lru_policy(frames, page_table, meta, time)
+    return lhd_policy(frames, page_table, meta, time)
 
   bucket_name = ML_CONTROLLER.current_bucket_name()
+  probs = None
+  if hasattr(ML_CONTROLLER, "current_probs"):
+    probs = ML_CONTROLLER.current_probs()
 
-  # If not enough history yet, fall back to LRU.
-  if bucket_name is None:
-    return lru_policy(frames, page_table, meta, time)
+  if bucket_name is None or probs is None:
+    return lhd_policy(frames, page_table, meta, time)
 
-  # Bucket B: truly random region → skip eviction entirely.
-  if bucket_name == "B":
-    return -1
+  probs = probs.astype("float32")
+  max_prob = float(probs.max())
+  bucket_idx = int(probs.argmax())
 
-  policy_name = ML_CONTROLLER.current_policy_name()
-  policy_fn = _POLICY_REGISTRY.get(policy_name, lru_policy)
+  CONF_MIN_OVERRIDE = 0.60 
+  CONF_STRONG_B = 0.70 
 
-  # Guard against accidental recursion
-  if policy_fn is ml_policy:
-    policy_fn = lru_policy
+  # 1. Start with LHD as the true baseline policy function (Bucket 1, 4, and low-confidence default)
+  policy_fn = lhd_policy
+
+  # 2. Check if the model is confident enough AND the pattern requires specialization
+  # Note: Bucket 5 (F: Mixed) is never used as an override policy here.
+  if max_prob >= CONF_MIN_OVERRIDE and bucket_idx != 5:
+
+    # Bucket 0 (A: Scan/Stride)
+    if bucket_idx == 0:
+      policy_fn = seq_hybrid_policy
+
+    # Bucket 1 (B: Random) - Only switch to preserve_cache if highly confident
+    elif bucket_idx == 1 and max_prob >= CONF_STRONG_B:
+      policy_fn = preserve_cache_policy
+
+    # Bucket 2 (C: Hot Set)
+    elif bucket_idx == 2:
+      policy_fn = twoq_policy
+
+    # Bucket 3 (D: Loop)
+    elif bucket_idx == 3:
+      policy_fn = loop_preserve_policy
+
+    # Bucket 4 (E: Phase Shift) stays as lhd_policy (default)
+
+  # PRINT WHEN ML POLICY CHANGES 
+  global _LAST_PRINTED_POLICY
+  effective = policy_fn.__name__
+  if _LAST_PRINTED_POLICY != effective:
+    print(f"[ML-POLICY] switch → {effective}   at access #{time} (Bucket {bucket_name}, Conf {max_prob:.2f})")
+    _LAST_PRINTED_POLICY = effective
 
   return policy_fn(frames, page_table, meta, time)
 
 
-# ----- Registry -----
-
-
 _POLICY_REGISTRY: Dict[str, EvictionPolicyFn] = {
   "fifo": fifo_policy,
-  "clock": clock_policy,
   "lru": lru_policy,
   "mru": mru_policy,
   "random": random_policy,
@@ -406,8 +446,10 @@ _POLICY_REGISTRY: Dict[str, EvictionPolicyFn] = {
   "lhd": lhd_policy,
   "2q": twoq_policy,
   "seq_hybrid": seq_hybrid_policy,
-  "seq_hybrid_policy": seq_hybrid_policy,  # alias to match PatternController mapping
+  "seq_hybrid_policy": seq_hybrid_policy,  # alias for controller mapping
   "preserve_cache": preserve_cache_policy,
+  "loop_preserve": loop_preserve_policy,
+  "loop_preserve_policy": loop_preserve_policy,
   "ml": ml_policy,
 }
 

@@ -4,7 +4,7 @@ import random
 from typing import Dict, List
 
 
-# ----- Trace generators for different access patterns -----
+# Trace generators for different access patterns
 
 def _sequential_scan_trace(
   length: int = 2000,
@@ -152,7 +152,7 @@ def _random_mixed_trace(
   return trace
 
 
-# ----- Predefined sample traces for simulator / quick inspection -----
+# Predefined sample traces for simulator 
 
 _PREDEFINED_TRACES: Dict[str, List[int]] = {
   # Bucket A: strided or sequential with no repeats
@@ -167,7 +167,6 @@ _PREDEFINED_TRACES: Dict[str, List[int]] = {
     num_pages_hot=16,
     length=512,
     noise_prob=0.0,
-    #seed=2,
   ),
 
   # Bucket D: looping / cyclic
@@ -180,14 +179,12 @@ _PREDEFINED_TRACES: Dict[str, List[int]] = {
     pages_per_segment=16,
     num_segments=4,
     gap=16,
-    #seed=5,
   ),
   "mixed_random": _random_mixed_trace(
     num_pages_hot=16,
     num_pages_cold=128,
     length=512,
     hot_prob=0.8,
-    #seed=6,
   ),
 }
 
@@ -211,9 +208,7 @@ def get_trace(name: str) -> List[int]:
   return _PREDEFINED_TRACES[key]
 
 
-# ============================================================
 # Factory helpers for ML dataset generation
-# ============================================================
 
 def make_traces_for_pattern_A(
   num_traces: int,
@@ -259,7 +254,6 @@ def make_traces_for_pattern_C(
         length=length,
         noise_prob=0.02,
         num_noise_pages=512,
-        #seed=200 + i,
       )
     )
   return traces
@@ -281,7 +275,6 @@ def make_traces_for_pattern_D(
         length=length,
         stride=1,
         jitter_prob=0.05,
-        #seed=300 + i,
       )
     )
   return traces
@@ -304,7 +297,6 @@ def make_traces_for_pattern_E(
         pages_per_segment=16,
         num_segments=length // (100 * 1),
         gap=16,
-        #seed=400 + i,
       )
     )
   # Hot/cold mixed traces
@@ -315,7 +307,6 @@ def make_traces_for_pattern_E(
         num_pages_cold=512,
         length=length,
         hot_prob=0.8,
-        #seed=450 + i,
       )
     )
   return traces

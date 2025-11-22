@@ -7,11 +7,13 @@ class AccessPatternClassifier(nn.Module):
   def __init__(self, input_dim: int, num_classes: int):
     super().__init__()
     self.net = nn.Sequential(
-      nn.Linear(input_dim, 32),
+      nn.Linear(input_dim, 64),
       nn.ReLU(),
-      nn.Linear(32, 32),
+      nn.BatchNorm1d(64),
+      nn.Linear(64, 64),
       nn.ReLU(),
-      nn.Linear(32, num_classes),
+      nn.BatchNorm1d(64),
+      nn.Linear(64, num_classes),
     )
 
   def forward(self, x: torch.Tensor) -> torch.Tensor:

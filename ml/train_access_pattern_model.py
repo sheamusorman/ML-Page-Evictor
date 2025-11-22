@@ -22,10 +22,29 @@ class AccessPatternDataset(Dataset):
     y = torch.tensor(self.y[idx], dtype=torch.long)
     return x, y
 
+
+def compute_class_weights(y: np.ndarray) -> torch.Tensor:
+  """
+  Compute inverse-frequency class weights for cross-entropy.
+  """
+  classes, counts = np.unique(y, return_counts=True)
+  num_classes = int(classes.max()) + 1
+
+  freq = np.zeros(num_classes, dtype=np.float32)
+  freq[classes] = counts.astype(np.float32)
+
+  # Inverse frequency
+  eps = 1e-6
+  inv = 1.0 / (freq + eps)
+  inv /= inv.mean()
+
+  return torch.tensor(inv, dtype=torch.float32)
+
+
 def train_model(
   X: np.ndarray,
   y: np.ndarray,
-  epochs: int = 20,
+  epochs: int = 40,
   batch_size: int = 64,
 ) -> AccessPatternClassifier:
   dataset = AccessPatternDataset(X, y)
@@ -43,13 +62,15 @@ def train_model(
 
   model = AccessPatternClassifier(input_dim=input_dim, num_classes=num_classes)
   optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+  class_weights = compute_class_weights(y)
 
   for epoch in range(epochs):
     # Training
     model.train()
     for xb, yb in train_loader:
       logits = model(xb)
-      loss = F.cross_entropy(logits, yb)
+      loss = F.cross_entropy(logits, yb, weight=class_weights)
+
       optimizer.zero_grad()
       loss.backward()
       optimizer.step()
@@ -69,11 +90,12 @@ def train_model(
 
   return model
 
+
 if __name__ == "__main__":
   X = np.load("X_access_pattern.npy")
   y = np.load("y_access_pattern.npy")
   print("Loaded X_access_pattern.npy and y_access_pattern.npy")
 
-  model = train_model(X, y, epochs=20, batch_size=64)
+  model = train_model(X, y, epochs=40, batch_size=64)
   torch.save(model.state_dict(), "access_pattern_classifier.pt")
   print("Saved model to access_pattern_classifier.pt")

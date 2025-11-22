@@ -4,9 +4,9 @@ from typing import List, Tuple
 import numpy as np
 
 import traces
-from ml.features import compute_window_features
+from ml.features import compute_window_features, NUM_FEATURES
 
-# ----- Access pattern labels (buckets) -----
+# Access pattern labels (buckets) 
 
 # A: Strided or sequential with no repeats
 # B: Random reads
@@ -23,18 +23,21 @@ ACCESS_PATTERN_LABELS = {
   "F": 5,
 }
 
-WINDOW_SIZE = 48
-STRIDE = 24
+WINDOW_SIZE = 192
+STRIDE = 96
 
 TRACE_LENGTH = 2000
 NUM_TRACES_PER_PATTERN = 20
 
 MIXED_SEGMENT_LEN = 24
-MIXED_TOTAL_LEN = 2000
+MIXED_TOTAL_LEN = 3000
 NUM_MIXED_TRACES = 20
 
+# Fraction of F windows to keep (to avoid overwhelming A–E)
+F_DOWNSAMPLE_FRACTION = 0.10
 
-# ----- Window helpers -----
+
+# Window helpers 
 
 def make_windows(
   trace: List[int],
@@ -72,14 +75,14 @@ def windows_for_traces(
       y_list.append(pattern_label)
 
   if not X_list:
-    return np.zeros((0, 8), dtype=np.float32), np.zeros((0,), dtype=np.int64)
+    return np.zeros((0, NUM_FEATURES), dtype=np.float32), np.zeros((0,), dtype=np.int64)
 
   X = np.stack(X_list, axis=0)
   y = np.array(y_list, dtype=np.int64)
   return X, y
 
 
-# ----- Base dataset for A–E (clean pattern windows) -----
+# Base dataset for A–E (clean pattern windows) 
 
 def build_base_dataset() -> Tuple[np.ndarray, np.ndarray]:
   """
@@ -127,7 +130,7 @@ def build_base_dataset() -> Tuple[np.ndarray, np.ndarray]:
   return X_base, y_base
 
 
-# ----- Mixed dataset for F (ambiguous / combination windows) -----
+# Mixed dataset for F (ambiguous / combination windows) 
 
 def _build_mixed_trace(
   trace_a: List[int],
@@ -228,14 +231,15 @@ def build_mixed_dataset_for_F() -> Tuple[np.ndarray, np.ndarray]:
         y_list.append(pattern_F)
 
   if not X_list:
-    return np.zeros((0, 8), dtype=np.float32), np.zeros((0,), dtype=np.int64)
+    return np.zeros((0, NUM_FEATURES), dtype=np.float32), np.zeros((0,), dtype=np.int64)
 
   X_F = np.stack(X_list, axis=0)
   y_F = np.array(y_list, dtype=np.int64)
 
+  # Downsample F so it does not dominate the dataset.
   rng = np.random.default_rng(0)
   n_F = X_F.shape[0]
-  keep = max(n_F // 3, 1)
+  keep = max(int(n_F * F_DOWNSAMPLE_FRACTION), 1)
   idx = rng.choice(n_F, size=keep, replace=False)
   X_F = X_F[idx]
   y_F = y_F[idx]
@@ -243,8 +247,7 @@ def build_mixed_dataset_for_F() -> Tuple[np.ndarray, np.ndarray]:
   return X_F, y_F
 
 
-
-# ----- Full dataset builder -----
+# Full dataset builder 
 
 def build_full_dataset() -> Tuple[np.ndarray, np.ndarray]:
   """
