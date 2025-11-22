@@ -373,22 +373,24 @@ The new version improves this in four ways:
 
 ### Confusion Matrix
 
-Per-class accuracy:
-  A (scan/stride): 1.000 (380/380)
-  B (random): 1.000 (380/380)
-  C (hot set): 1.000 (380/380)
-  D (loop): 1.000 (380/380)
-  E (phase shift): 0.997 (379/380)
-  F (mixed): 1.000 (180/180)
+**Per-class accuracy:**  
+A (scan/stride): 1.000 (380/380)  
+B (random): 1.000 (380/380)  
+C (hot set): 1.000 (380/380)  
+D (loop): 1.000 (380/380)  
+E (phase shift): 0.997 (379/380)  
+F (mixed): 1.000 (180/180)
 
 Confusion matrix (rows = true, cols = pred):
+
           0     1     2     3     4     5
-  0:   380     0     0     0     0     0
-  1:     0   380     0     0     0     0
-  2:     0     0   380     0     0     0
-  3:     0     0     0   380     0     0
-  4:     0     0     0     0   379     1
-  5:     0     0     0     0     0   180
+  0:    380     0     0     0     0     0
+  1:      0   380     0     0     0     0
+  2:      0     0   380     0     0     0
+  3:      0     0     0   380     0     0
+  4:      0     0     0     0   379     1
+  5:      0     0     0     0     0   180
+
 
 
 
