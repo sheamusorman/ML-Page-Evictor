@@ -371,6 +371,20 @@ The new version improves this in four ways:
    low-level mechanism to exploit scan-heavy regions that LHD alone
    cannot model as directly.
 
+
+### Building The Model On Your Own
+
+In order to build your model on your own, run
+
+python -m ml.build_access_pattern_dataset 
+(builds the training dataset)
+
+python -m ml.train_access_pattern_model
+(trains the model on the build dataset)
+
+python -m ml.test_access_pattern_model
+(tests the model and creates a confusion matrix)
+
 ### Confusion Matrix
 
 **Per-class accuracy:**  
