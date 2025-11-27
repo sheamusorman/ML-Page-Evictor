@@ -27,7 +27,6 @@ Could also...
 
 2. Spend some time learning how certain pages are accessed--sequentially or randomly--and adapt policy as such. Could create clusters of pages that are sequentially accessed/routinely accessed together. I'm a big fan of using this in model.
 
-
 3. Non-multi-armed-bandit approach: Choose a predefined policy based on incoming access pattern?
 
 #### Pre-Trained Algorithm?
@@ -310,10 +309,10 @@ At runtime, the `PatternController`:
 3. Runs the classifier to predict the most likely bucket (A–F)
 4. Smooths predictions over the last few windows to avoid flapping
 5. Maps the bucket to a concrete eviction policy:
-   - A → MRU  
-   - B → random  
+   - A → Seq Hybrid Function  
+   - B → Preserve Cache  
    - C → 2Q  
-   - D → 2Q  
+   - D → Loop Preserve 
    - E → LHD  
    - F → keep the last stable policy
 
@@ -433,14 +432,14 @@ Overall, the ML system behaves conservatively on real-world workloads that are t
 ### Further Improvements Discussion
 
 1. Make use of more page metadata
-  1) origin of page/type of segment read from
-  2) (Increases feature data for potential model training)
+  * Origin of page/type of segment read from
+  * (Increases feature data for potential model training)
 
 2. Adaptive ML Data:
-  1) Storage Size Recognition: In the simulator, there isn't a set storage size. Having a defined storage size could help allude to the type of memory accesses that are occuring. For instance, (1, 49, 24, 18) looks a lot more like a working set (rather than random calls) if your storage size is 1M pages than if your storage size is 50.
-  2) Page Clustering/Association: Currently, the model only makes decisions based on the current window, however, if was able to recognize certain groups of pages together, it may infer a change in the access pattern earlier than it would under the current model.
-  3) ML Pattern Window Size: Even after research, I haven't quite found a consistent hot-pages/working set size (relative to the cache). I have found that cache size plays a vital role in the importance of policy switches, so being able to decide a reasonable cache size relative to both the storage size and typical hot pages size would allow me to choose a goldilocks window size, allowing the model to have enough data before a change is made, as well as not have too small of a scope.
-  4) Pattern Frequency Targets: In training the model, I have 6 labeled memory access patterns. Though I am not fully sure how the model treats these patterns in terms of frequency in practice, I think it is reasonable to assume that the model COULD work better if I had more data to inform the model on the typical frequency of each of these patterns. For example, if the model is told that 80% of the time looping reads occur and 20% of the time random reads occur, the model might aim for such a split when it comes to the policy decisions it is making. Currently, though, I provide no data on the relative frequency of the 6 classifications I've defined.
+   * Storage Size Recognition: In the simulator, there isn't a set storage size. Having a defined storage size could help allude to the type of memory accesses that are occuring. For instance, (1, 49, 24, 18) looks a lot more like a working set (rather than random calls) if your storage size is 1M pages than if your storage size is 50.
+   * Page Clustering/Association: Currently, the model only makes decisions based on the current window, however, if was able to recognize certain groups of pages together, it may infer a change in the access pattern earlier than it would under the current model.
+   * ML Pattern Window Size: Even after research, I haven't quite found a consistent hot-pages/working set size (relative to the cache). I have found that cache size plays a vital role in the importance of policy switches, so being able to decide a reasonable cache size relative to both the storage size and typical hot pages size would allow me to choose a goldilocks window size, allowing the model to have enough data before a change is made, as well as not have too small of a scope.
+   * Pattern Frequency Targets: In training the model, I have 6 labeled memory access patterns. Though I am not fully sure how the model treats these patterns in terms of frequency in practice, I think it is reasonable to assume that the model COULD work better if I had more data to inform the model on the typical frequency of each of these patterns. For example, if the model is told that 80% of the time looping reads occur and 20% of the time random reads occur, the model might aim for such a split when it comes to the policy decisions it is making. Currently, though, I provide no data on the relative frequency of the 6 classifications I've defined.
 
 3. Train model on real-world data!
 
